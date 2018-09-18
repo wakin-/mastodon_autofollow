@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <body onload="load_uuid();">
+    <form action = "/atlas/get_auth" method = "POST" id="form">
+      <input type = "hidden" name = "code" />
+      <input type = "hidden" name = "uuid" />
+    </form>
+
+  <script type="text/javascript">
+    function getCode(){
+      var vars = {}; 
+      var param = location.search.substring(1).split('&');
+      for(var i = 0; i < param.length; i++) {
+        var keySearch = param[i].search(/=/);
+        var key = '';
+        if(keySearch != -1) key = param[i].slice(0, keySearch);
+        var val = param[i].slice(param[i].indexOf('=', 0) + 1);
+        if(key != '') vars[key] = decodeURI(val);
+      } 
+      return vars.code;
+    }
+
+    function load_uuid() {
+        var uuid = window.localStorage.getItem('uuid');
+        var code = getCode();
+        document.forms.form.uuid.value = uuid
+        document.forms.form.code.value = code
+        document.forms.form.submit();
+    }
+  </script>
+  </body>
+</html>
