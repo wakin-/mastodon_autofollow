@@ -1,4 +1,8 @@
-config.ini
+virtualenv env -p python3
+
+pip install -r requirements.txt
+
+vi config.ini
 ```
 [config]
 dbname = ****.db
