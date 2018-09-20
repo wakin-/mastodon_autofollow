@@ -6,6 +6,7 @@ click==6.7
 cryptography==2.3.1
 decorator==4.3.0
 Flask==1.0.2
+Flask-WTF==0.14.2
 http-ece==1.0.5
 idna==2.7
 itsdangerous==0.24
@@ -21,3 +22,4 @@ six==1.11.0
 urllib3==1.23
 uWSGI==2.0.17.1
 Werkzeug==0.14.1
+WTForms==2.2.1
