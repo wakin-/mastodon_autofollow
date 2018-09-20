@@ -3,7 +3,7 @@
     <form action = "/atlas/post" method = "POST" id="form">
       <p>user <input type = "text" name = "user_id" /></p>
       <p>domain <input type = "text" name = "domain" /></p>
-      <p><input type = "button" value = "作成" onclick="onSignIn();" /></p> 
+      <p><input type = "button" value = "sign in" onclick="onSignIn();" /></p> 
       <input type = "hidden" name = "uuid" value="{{ uuid }}" />
       <input type = "hidden" name = "csrf_token" value="{{ csrf_token() }}" />
     </form>

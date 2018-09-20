@@ -1,10 +1,10 @@
 {% extends "layout.html" %}
 {% block body %}
-    <form action = "/atlas/logout" method = "POST" id="form">
+    <form action = "/atlas" method = "POST" id="form">
       {% if login_user %}
       <p><img src="{{ login_user.avatar }}" width="40px">{{ login_user.user_id}}@{{ login_user.domain }} で参加中</p>
       {% endif %}
-      <p><input type = "button" value = "削除" onclick="onSignOut();" /></p> 
+      <p><input type = "button" value = "sign out" onclick="onSignOut();" /> <input class="danger" type = "button" value = "delete" onclick="onDelete();" /></p> 
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     </form>
 
@@ -19,11 +19,18 @@
 {% block javascript %}
   <script type="text/javascript">
     function onSignOut() {
+      document.forms.form.action = "/atlas/signout";
       document.forms.form.submit();
+    }
+    function onDelete() {
+      if (confirm("連携情報をすべて削除します")) {
+        document.forms.form.action = "/atlas/delete";
+        document.forms.form.submit();
+      }
     }
 
     function entry(zodiac_id) {
-      if (confirm("入りますか？（現在の参加者に対して自動で相互フォローが開始されます）")) {
+      if (confirm("現在の参加者に対して自動で相互フォローが開始されます")) {
         $.ajax({
           url: '/atlas/entry',
           type: 'post',

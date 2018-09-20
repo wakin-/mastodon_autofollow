@@ -14,7 +14,7 @@ class Zodiac:
     def user_list(self):
         with closing(sqlite3.connect(dbname)) as conn:
             c = conn.cursor()
-            c.execute('''select id, access_token, user.user_id, domain, session_id, avatar 
+            c.execute('''select id, access_token, user.user_id, domain, avatar 
                          from user left join user_zodiac on user.id=user_zodiac.user_id 
                          where user_zodiac.zodiac_id=?''', (self.id,))
             fetch = c.fetchall()

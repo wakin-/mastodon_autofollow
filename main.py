@@ -113,7 +113,7 @@ def index():
         return render_template('form.html', uuid=uuid, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
 
     session_id = session['session_id']
-    login_user = User.first(session_id=session_id)
+    login_user = User.login_user(session_id)
 
     if login_user is None:
         uuid = get_random_str()
@@ -130,7 +130,7 @@ def post():
 
     if 'session_id' in session:
         session_id = session['session_id']
-        if User.first(session_id=session_id) is not None:
+        if User.login_user(session_id) is not None:
             flash('参加しています！', 'info')
             return redirect(redirect_url, code=302)
 
@@ -171,34 +171,49 @@ def get_auth():
         flash('情報の取得に失敗しました(access_token)', 'error')
         return redirect(redirect_url, code=302)
 
-    login_user = mastodon.account_verify_credentials()
+    mastodon_account = mastodon.account_verify_credentials()
 
-    if User.first(access_token=access_token) is None:
-        if User.first(user_id=user_id, domain=domain) is not None:
-            flash('参加しています！', 'info')
-        else:
-            flash('参加しました！', 'info')
-    else:
-        flash('参加しています！', 'info')
-    user = User.first(user_id=user_id, domain=domain)
-    if user is not None:
-        user.drop()
     session_id = get_random_str()
-    user = User(None, access_token, user_id, domain, session_id, login_user.avatar)
-    user.save()
     session['session_id'] = session_id
+
+    user = User.first(access_token=access_token)
+    if user is None:
+        user = User.first(user_id=user_id, domain=domain)
+        if user is not None:
+            user.access_token = access_token
+            user.update()
+            flash('Sign Inしています！', 'info')
+        else:
+            user = User(None, access_token, user_id, domain, mastodon_account.avatar)
+            user.save()
+            flash('Sign Inしました！', 'info')
+    else:
+        flash('Sign Inしています！', 'info')
+
+    user.add_session(session_id)
 
     return redirect(redirect_url, code=302)
 
-@app.route('/atlas/logout', methods = ['POST'])
-def logout():
+@app.route('/atlas/signout', methods = ['POST'])
+def signout():
     session_id = session.pop('session_id', None)
     if session_id is None:
         flash('情報の取得に失敗しました(session_id)', 'error')
         return redirect(redirect_url, code=302)
-    user = User.first(session_id=session_id)
-    user.drop()
-    flash('退出しました！', 'info')
+    login_user = User.login_user(session_id)
+    login_user.del_session(session_id)
+    flash('Sign Outしました！', 'info')
+    return redirect(redirect_url, code=302)
+
+@app.route('/atlas/delete', methods = ['POST'])
+def delete():
+    session_id = session.pop('session_id', None)
+    if session_id is None:
+        flash('情報の取得に失敗しました(session_id)', 'error')
+        return redirect(redirect_url, code=302)
+    login_user = User.login_user(session_id)
+    login_user.drop()
+    flash('削除しました！', 'info')
     return redirect(redirect_url, code=302)
 
 @app.route('/atlas/entry', methods = ['POST'])
@@ -207,21 +222,21 @@ def entry():
         return ''
     zodiac_id = request.json['zodiac_id']
     if login_count(zodiac_id) >= max_login:
-        flash('ログイン人数が上限に達しています', 'error')
+        flash('参加人数が上限に達しています', 'error')
         return redirect(redirect_url, code=302)
 
     if 'session_id' not in session:
         return ''
     session_id = session['session_id']
-    user = User.first(session_id=session_id)
-    user.add_zodiac(zodiac_id)
-    api_base_url = "https://"+user.domain
-    mastodon = Mastodon(access_token=user.access_token, api_base_url=api_base_url)
+    login_user = User.login_user(session_id=session_id)
+    login_user.add_zodiac(zodiac_id)
+    api_base_url = "https://"+login_user.domain
+    mastodon = Mastodon(access_token=login_user.access_token, api_base_url=api_base_url)
 
-    autofollow(mastodon, user.user_id, user.domain, zodiac_id)
+    autofollow(mastodon, login_user.user_id, login_user.domain, zodiac_id)
 
     zodiac = Zodiac.first(id=zodiac_id)
-    return render_template('zodiac_list.html', login_user=user, zodiac=zodiac, max_login=max_login)
+    return render_template('zodiac_list.html', login_user=login_user, zodiac=zodiac, max_login=max_login)
 
 @app.route('/atlas/exit', methods = ['POST'])
 def exit():
@@ -231,7 +246,7 @@ def exit():
     if 'session_id' not in session:
         return ''
     session_id = session['session_id']
-    user = User.first(session_id=session_id)
-    user.del_zodiac(zodiac_id)
+    login_user = User.login_user(session_id=session_id)
+    login_user.del_zodiac(zodiac_id)
     zodiac = Zodiac.first(id=zodiac_id)
-    return render_template('zodiac_list.html', login_user=user, zodiac=zodiac, max_login=max_login)
+    return render_template('zodiac_list.html', login_user=login_user, zodiac=zodiac, max_login=max_login)
