@@ -14,7 +14,8 @@ with closing(sqlite3.connect(dbname)) as conn:
     create_table = 'create table user (id integer PRIMARY KEY AUTOINCREMENT, access_token varchar(256), user_id varchar(256), domain varchar(256), avatar varchar(256))'
     c.execute(create_table)
 
-    create_table = 'create table zodiac (id integer PRIMARY KEY AUTOINCREMENT, title varchar(256))'
+    create_table = '''create table zodiac (id integer PRIMARY KEY AUTOINCREMENT, title varchar(256),
+                      bot_access_token varchar(256), bot_base_url vasechar(256), uri varchar(256))'''
     c.execute(create_table)
 
     create_table = '''create table user_zodiac (user_id integer, zodiac_id integer, 

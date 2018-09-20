@@ -7,6 +7,7 @@ import string
 import random
 import configparser
 from autofollow import autofollow
+from announce import announce
 
 from Zodiac import Zodiac
 from User import User
@@ -234,6 +235,7 @@ def entry():
     mastodon = Mastodon(access_token=login_user.access_token, api_base_url=api_base_url)
 
     autofollow(mastodon, login_user.user_id, login_user.domain, zodiac_id)
+    announce(login_user.user_id, login_user.domain, zodiac_id)
 
     zodiac = Zodiac.first(id=zodiac_id)
     return render_template('zodiac_list.html', login_user=login_user, zodiac=zodiac, max_login=max_login)

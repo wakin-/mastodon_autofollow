@@ -3,6 +3,8 @@ import sqlite3
 from contextlib import closing
 import configparser
 
+from Zodiac import Zodiac
+
 config = configparser.ConfigParser()
 config.read('config.ini')
 dbname = config['config']['dbname']
@@ -29,3 +31,8 @@ def autofollow(mastodon, user_id, domain, zodiac_id):
         mastodon.follows(uri)
         uri = user_id+'@'+domain
         mstdn.follows(uri)
+
+    zodiac = Zodiac.first(id=zodiac_id)
+    if zodiac.uri is '' or zodiac.uri is None:
+        return
+    mastodon.follows(zodiac.uri)
