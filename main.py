@@ -33,7 +33,7 @@ def create_app():
 app = create_app()
 csrf = CSRFProtect(app)
 
-def get_form_params():
+def get_signin_params():
     form = request.form
     if 'user_id' in form and 'domain' in form and 'uuid' in form:
         return request.form['user_id'], request.form['domain'], request.form['uuid']
@@ -100,6 +100,18 @@ def login_count(zodiac_id):
         fetch = c.fetchone()
         return fetch[0]
 
+def get_login_user():
+    if 'session_id' not in session:
+        return None
+
+    session_id = session['session_id']
+    login_user = User.login_user(session_id)
+
+    return login_user
+
+def get_api_base_url(domain):
+    return 'https://'+domain
+
 @app.route('/atlas')
 def index():
     code = request.args.get('code', default='')
@@ -109,40 +121,38 @@ def index():
     zodiac_list = Zodiac.list()
     user_list = User.list()
 
-    if 'session_id' not in session:
-        uuid = get_random_str()
-        return render_template('form.html', uuid=uuid, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
-
-    session_id = session['session_id']
-    login_user = User.login_user(session_id)
-
+    login_user = get_login_user()
     if login_user is None:
         uuid = get_random_str()
-        return render_template('form.html', uuid=uuid, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
+        return render_template('signin.html', uuid=uuid, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
 
-    return render_template('room.html', login_user=login_user, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
+    return render_template('delete_signout.html', login_user=login_user, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
 
-@app.route('/atlas/post', methods = ['POST'])
-def post():
-    user_id, domain, uuid = get_form_params()
+@app.route('/atlas/signin', methods = ['POST'])
+def signin():
+    user_id, domain, uuid = get_signin_params()
     if user_id is '' or domain is '' or uuid is '':
         flash('情報の取得に失敗しました(user_id, domain, uuid)', 'error')
         return redirect(redirect_url, code=302)
 
-    if 'session_id' in session:
-        session_id = session['session_id']
-        if User.login_user(session_id) is not None:
-            flash('参加しています！', 'info')
-            return redirect(redirect_url, code=302)
+    if get_login_user() is not None:
+        flash('参加しています！', 'info')
+        return redirect(redirect_url, code=302)
 
     save_uuid(user_id, domain, uuid)
+
     client_id, client_secret = get_oauth_applications(domain)
     if client_id is '' or client_secret is '':
         flash('情報の取得に失敗しました(cilent_id, client_secret)', 'error')
         return redirect(redirect_url, code=302)
-    api_base_url = 'https://'+domain
+
+    api_base_url = get_api_base_url(domain)
     mastodon = Mastodon(client_id=client_id, client_secret=client_secret, api_base_url=api_base_url)
     auth_url = mastodon.auth_request_url(client_id=client_id, redirect_uris=redirect_url, scopes=scopes)
+    if auth_url is '':
+        flash('情報の取得に失敗しました(auth_url)', 'error')
+        return redirect(redirect_url, code=302)
+
     return redirect(auth_url, code=302)
 
 def load_uuid():
@@ -154,25 +164,32 @@ def get_auth():
     if uuid is '' or code is '':
         flash('情報の取得に失敗しました(uuid, code)', 'error')
         return redirect(redirect_url, code=302)
+
     info = load_from_uuid(uuid)
     if info is None:
         flash('情報の取得に失敗しました(info)', 'error')
         return redirect(redirect_url, code=302)
     disable_uuid(uuid)
+
     user_id, domain = info
     client_id, client_secret = get_oauth_applications(domain)
-    api_base_url = 'https://'+domain
+    if client_id is '' or client_secret is '':
+        flash('情報の取得に失敗しました(cilent_id, client_secret)', 'error')
+        return redirect(redirect_url, code=302)
+
+    api_base_url = get_api_base_url(domain)
     mastodon = Mastodon(client_id=client_id, client_secret=client_secret, api_base_url=api_base_url)
     try:
         access_token = mastodon.log_in(code=code, scopes=scopes, redirect_uri=redirect_url)
     except:
-        access_token = ''
-
-    if access_token is '':
         flash('情報の取得に失敗しました(access_token)', 'error')
         return redirect(redirect_url, code=302)
 
-    mastodon_account = mastodon.account_verify_credentials()
+    try:
+        mastodon_account = mastodon.account_verify_credentials()
+    except:
+        flash('情報の取得に失敗しました(mastodon_account)', 'error')
+        return redirect(redirect_url, code=302)
 
     session_id = get_random_str()
     session['session_id'] = session_id
@@ -197,23 +214,19 @@ def get_auth():
 
 @app.route('/atlas/signout', methods = ['POST'])
 def signout():
-    session_id = session.pop('session_id', None)
-    if session_id is None:
-        flash('情報の取得に失敗しました(session_id)', 'error')
-        return redirect(redirect_url, code=302)
-    login_user = User.login_user(session_id)
-    login_user.del_session(session_id)
+    login_user = get_login_user()
+    session_id = session.pop('session_id', '')
+    if login_user is not None:
+        login_user.del_session(session_id)
     flash('Sign Outしました！', 'info')
     return redirect(redirect_url, code=302)
 
 @app.route('/atlas/delete', methods = ['POST'])
 def delete():
-    session_id = session.pop('session_id', None)
-    if session_id is None:
-        flash('情報の取得に失敗しました(session_id)', 'error')
-        return redirect(redirect_url, code=302)
-    login_user = User.login_user(session_id)
-    login_user.drop()
+    login_user = get_login_user()
+    if login_user is not None:
+        login_user.drop()
+    session_id = session.pop('session_id', '')
     flash('削除しました！', 'info')
     return redirect(redirect_url, code=302)
 
@@ -222,22 +235,23 @@ def entry():
     if 'zodiac_id' not in request.json:
         return ''
     zodiac_id = request.json['zodiac_id']
-    if login_count(zodiac_id) >= max_login:
-        flash('参加人数が上限に達しています', 'error')
-        return redirect(redirect_url, code=302)
 
-    if 'session_id' not in session:
+    login_user = get_login_user()
+    if login_user is None:
         return ''
-    session_id = session['session_id']
-    login_user = User.login_user(session_id=session_id)
+    zodiac = Zodiac.first(id=zodiac_id)
+
+    if login_count(zodiac_id) >= max_login:
+        return render_template('zodiac_list.html', login_user=login_user, zodiac=zodiac, max_login=max_login, max=1)
+
     login_user.add_zodiac(zodiac_id)
-    api_base_url = "https://"+login_user.domain
+
+    api_base_url = get_api_base_url(login_user.domain)
     mastodon = Mastodon(access_token=login_user.access_token, api_base_url=api_base_url)
 
-    autofollow(mastodon, login_user.user_id, login_user.domain, zodiac_id)
-    announce(login_user.user_id, login_user.domain, zodiac_id)
+    autofollow(mastodon, login_user.user_id, login_user.domain, zodiac)
+    announce(login_user.user_id, login_user.domain, zodiac)
 
-    zodiac = Zodiac.first(id=zodiac_id)
     return render_template('zodiac_list.html', login_user=login_user, zodiac=zodiac, max_login=max_login)
 
 @app.route('/atlas/exit', methods = ['POST'])
@@ -245,10 +259,12 @@ def exit():
     if 'zodiac_id' not in request.json:
         return ''
     zodiac_id = request.json['zodiac_id']
-    if 'session_id' not in session:
+
+    login_user = get_login_user()
+    if login_user is None:
         return ''
-    session_id = session['session_id']
-    login_user = User.login_user(session_id=session_id)
+
     login_user.del_zodiac(zodiac_id)
+
     zodiac = Zodiac.first(id=zodiac_id)
     return render_template('zodiac_list.html', login_user=login_user, zodiac=zodiac, max_login=max_login)

@@ -1,18 +1,13 @@
 {% extends "layout.html" %}
+
 {% block body %}
-    <form action = "/atlas/post" method = "POST" id="form">
+    <form action = "/atlas/signin" method = "POST" id="form">
       <p>user <input type = "text" name = "user_id" /></p>
       <p>domain <input type = "text" name = "domain" /></p>
       <p><input type = "button" value = "sign in" onclick="onSignIn();" /></p> 
       <input type = "hidden" name = "uuid" value="{{ uuid }}" />
       <input type = "hidden" name = "csrf_token" value="{{ csrf_token() }}" />
     </form>
-    <ul>
-    {% for zodiac in zodiac_list %}
-      <hr>
-      <li id="zodiac_id_{{ zodiac.id }}">{% include 'zodiac_list.html' ignore missing with context %}</li>
-    {% endfor %}
-    </ul>
 {% endblock %}
 
 {% block javascript %}

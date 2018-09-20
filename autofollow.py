@@ -18,8 +18,8 @@ def get_member(zodiac_id):
         fetch = c.fetchall()
         return fetch
 
-def autofollow(mastodon, user_id, domain, zodiac_id):
-    member = get_member(zodiac_id)
+def autofollow(mastodon, user_id, domain, zodiac):
+    member = get_member(zodiac.id)
 
     for user in member:
         a_tk, u_id, dmin = user
@@ -28,11 +28,19 @@ def autofollow(mastodon, user_id, domain, zodiac_id):
         api_base_url = 'https://'+dmin
         mstdn = Mastodon(access_token=a_tk, api_base_url=api_base_url)
         uri = u_id+'@'+dmin
-        mastodon.follows(uri)
+        try:
+            mastodon.follows(uri)
+        except:
+            pass
         uri = user_id+'@'+domain
-        mstdn.follows(uri)
+        try:
+            mstdn.follows(uri)
+        except:
+            pass
 
-    zodiac = Zodiac.first(id=zodiac_id)
     if zodiac.uri is '' or zodiac.uri is None:
         return
-    mastodon.follows(zodiac.uri)
+    try:
+        mastodon.follows(zodiac.uri)
+    except:
+        pass

@@ -1,19 +1,13 @@
 {% extends "layout.html" %}
+
 {% block body %}
     <form action = "/atlas" method = "POST" id="form">
       {% if login_user %}
-      <p><img src="{{ login_user.avatar }}" width="40px">{{ login_user.user_id}}@{{ login_user.domain }} でSign In中</p>
+      <p><img src="{{ login_user.avatar }}" width="40px">{{ login_user.user_id}}@{{ login_user.domain }} で<span class="text-success">Sign In中</span></p>
       {% endif %}
       <p><input type = "button" value = "sign out" onclick="onSignOut();" /> <input class="btn-danger" type = "button" value = "delete" onclick="onDelete();" /></p> 
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     </form>
-
-    <ul>
-    {% for zodiac in zodiac_list %}
-      <hr>
-      <li id="zodiac_id_{{ zodiac.id }}">{% include 'zodiac_list.html' ignore missing with context %}</li>
-    {% endfor %}
-    </ul>
 {% endblock %}
 
 {% block javascript %}

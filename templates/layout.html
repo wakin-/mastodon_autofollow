@@ -36,6 +36,13 @@
 
     {% block body %}{% endblock %}
 
+    <ul>
+    {% for zodiac in zodiac_list %}
+      <hr>
+      <li id="zodiac_id_{{ zodiac.id }}">{% include 'zodiac_list.html' ignore missing with context %}</li>
+    {% endfor %}
+    </ul>
+
     </div>
 
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
