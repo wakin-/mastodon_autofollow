@@ -4,6 +4,7 @@
     <form action = "/atlas/get_auth" method = "POST" id="form">
       <input type = "hidden" name = "code" />
       <input type = "hidden" name = "uuid" />
+      <input type = "hidden" name = "csrf_token" value="{{ csrf_token() }}" />
     </form>
 
   <script type="text/javascript">

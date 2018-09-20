@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, abort, flash, session
+from flask_wtf.csrf import CSRFProtect
 from mastodon import Mastodon
 import sqlite3
 from contextlib import closing
@@ -6,6 +7,9 @@ import string
 import random
 import configparser
 from autofollow import autofollow
+
+from Zodiac import Zodiac
+from User import User
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -26,6 +30,7 @@ def create_app():
     return app
 
 app = create_app()
+csrf = CSRFProtect(app)
 
 def get_form_params():
     form = request.form
@@ -84,90 +89,37 @@ def get_redirect_params():
         return request.form['uuid'], request.form['code']
     return '', ''
 
-def check_access_token(access_token=None, user_id=None, domain=None, session_id=None):
-    sql = 'select access_token, user_id, domain, session_id, avatar from access_token'
-    with closing(sqlite3.connect(dbname)) as conn:
-        c = conn.cursor()
-        if access_token is not None:
-            c.execute(sql+' where access_token=?', (access_token,))
-        elif user_id is not None and domain is not None:
-            c.execute(sql+' where user_id=? and domain=?', (user_id, domain))
-        elif session_id is not None:
-            c.execute(sql+' where session_id=?', (session_id,))
-        else:
-            c.execute(sql+' where 1=0')
-        fetch = c.fetchone()
-        return fetch
-
-def save_access_token(access_token, user_id ,domain, session_id, avatar):
-    with closing(sqlite3.connect(dbname)) as conn:
-        c = conn.cursor()
-        c.execute('insert into access_token (access_token, user_id, domain, session_id, avatar) values (?,?,?,?,?)', (access_token, user_id, domain, session_id, avatar))
-        conn.commit()
-
-def delete_access_token(access_token=None, session_id=None, user_id=None, domain=None):
-    sql = 'delete from access_token where'
-    with closing(sqlite3.connect(dbname)) as conn:
-        c = conn.cursor()
-        if access_token is not None:
-            c.execute(sql+' access_token=?', (access_token,))
-        elif user_id is not None and domain is not None:
-            c.execute(sql+' user_id=? and domain=?', (user_id,domain))
-        elif session_id is not None:
-            c.execute(sql+' session_id=?', (session_id,))
-        conn.commit()
-
 def get_random_str(n=64):
     return ''.join([random.choice(string.ascii_letters + string.digits) for i in range(n)])
 
-def get_login_user(session_id=None, access_token=None, domain=None):
-    if session_id is not None:
-        login_info = check_access_token(session_id=session_id)
-        if login_info is None:
-            return None
-        access_token, user_id, domain, session_id, avatar = login_info
-
-    api_base_url = 'https://'+domain
-    mastodon = Mastodon(access_token=access_token, api_base_url=api_base_url)
-    try:
-        login_user = mastodon.account_verify_credentials()
-        login_user.domain = domain
-    except:
-        session.pop('session_id', None)
-        login_user = None
-    return login_user
-
-def login_count():
+def login_count(zodiac_id):
     with closing(sqlite3.connect(dbname)) as conn:
         c = conn.cursor()
-        c.execute('select count(*) from access_token')
+        c.execute('select count(*) from user_zodiac where zodiac_id=?', (zodiac_id,))
         fetch = c.fetchone()
         return fetch[0]
-
-def get_login_users():
-    with closing(sqlite3.connect(dbname)) as conn:
-        c = conn.cursor()
-        c.execute('select avatar from access_token')
-        fetch = c.fetchall()
-        return fetch
 
 @app.route('/atlas')
 def index():
     code = request.args.get('code', default='')
     if code is not '':
         return load_uuid()
-    uuid = get_random_str()
 
-    login_user = None
-    if 'session_id' in session:
-        session_id = session['session_id']
-        login_user = get_login_user(session_id=session_id)
+    zodiac_list = Zodiac.list()
+    user_list = User.list()
 
-    count = login_count()
+    if 'session_id' not in session:
+        uuid = get_random_str()
+        return render_template('form.html', uuid=uuid, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
 
-    login_users = get_login_users()
+    session_id = session['session_id']
+    login_user = User.first(session_id=session_id)
 
-    return render_template('form.html', uuid=uuid, login_user=login_user, login_users=login_users, max_login=max_login)
+    if login_user is None:
+        uuid = get_random_str()
+        return render_template('form.html', uuid=uuid, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
+
+    return render_template('room.html', login_user=login_user, user_list=user_list, max_login=max_login, zodiac_list=zodiac_list)
 
 @app.route('/atlas/post', methods = ['POST'])
 def post():
@@ -178,7 +130,7 @@ def post():
 
     if 'session_id' in session:
         session_id = session['session_id']
-        if check_access_token(session_id=session_id) is not None:
+        if User.first(session_id=session_id) is not None:
             flash('参加しています！', 'info')
             return redirect(redirect_url, code=302)
 
@@ -197,10 +149,6 @@ def load_uuid():
 
 @app.route('/atlas/get_auth', methods = ['POST'])
 def get_auth():
-    if login_count() >= max_login:
-        flash('ログイン人数が上限に達しています', 'error')
-        return redirect(redirect_url, code=302)
-
     uuid, code = get_redirect_params()
     if uuid is '' or code is '':
         flash('情報の取得に失敗しました(uuid, code)', 'error')
@@ -225,17 +173,19 @@ def get_auth():
 
     login_user = mastodon.account_verify_credentials()
 
-    if check_access_token(access_token=access_token) is None:
-        if check_access_token(user_id=user_id, domain=domain) is not None:
+    if User.first(access_token=access_token) is None:
+        if User.first(user_id=user_id, domain=domain) is not None:
             flash('参加しています！', 'info')
         else:
-            autofollow(mastodon, user_id, domain)
             flash('参加しました！', 'info')
     else:
         flash('参加しています！', 'info')
-    delete_access_token(user_id=user_id, domain=domain)
+    user = User.first(user_id=user_id, domain=domain)
+    if user is not None:
+        user.drop()
     session_id = get_random_str()
-    save_access_token(access_token, user_id, domain, session_id, login_user.avatar)
+    user = User(None, access_token, user_id, domain, session_id, login_user.avatar)
+    user.save()
     session['session_id'] = session_id
 
     return redirect(redirect_url, code=302)
@@ -246,6 +196,42 @@ def logout():
     if session_id is None:
         flash('情報の取得に失敗しました(session_id)', 'error')
         return redirect(redirect_url, code=302)
-    delete_access_token(session_id=session_id)
+    user = User.first(session_id=session_id)
+    user.drop()
     flash('退出しました！', 'info')
     return redirect(redirect_url, code=302)
+
+@app.route('/atlas/entry', methods = ['POST'])
+def entry():
+    if 'zodiac_id' not in request.json:
+        return ''
+    zodiac_id = request.json['zodiac_id']
+    if login_count(zodiac_id) >= max_login:
+        flash('ログイン人数が上限に達しています', 'error')
+        return redirect(redirect_url, code=302)
+
+    if 'session_id' not in session:
+        return ''
+    session_id = session['session_id']
+    user = User.first(session_id=session_id)
+    user.add_zodiac(zodiac_id)
+    api_base_url = "https://"+user.domain
+    mastodon = Mastodon(access_token=user.access_token, api_base_url=api_base_url)
+
+    autofollow(mastodon, user.user_id, user.domain, zodiac_id)
+
+    zodiac = Zodiac.first(id=zodiac_id)
+    return render_template('zodiac_list.html', login_user=user, zodiac=zodiac, max_login=max_login)
+
+@app.route('/atlas/exit', methods = ['POST'])
+def exit():
+    if 'zodiac_id' not in request.json:
+        return ''
+    zodiac_id = request.json['zodiac_id']
+    if 'session_id' not in session:
+        return ''
+    session_id = session['session_id']
+    user = User.first(session_id=session_id)
+    user.del_zodiac(zodiac_id)
+    zodiac = Zodiac.first(id=zodiac_id)
+    return render_template('zodiac_list.html', login_user=user, zodiac=zodiac, max_login=max_login)
