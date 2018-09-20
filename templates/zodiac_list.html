@@ -1,0 +1,2 @@
+#{{ zodiac.title }} {% if login_user %}{% if login_user.zodiac(zodiac.id) is none %}{% if zodiac.user_list()|length < max_login %}<input type="button" value="入る" onclick="entry({{ zodiac.id }})">{% endif %}{% else %}<input type="button" value="出る" onclick="exit({{ zodiac.id }})">{% endif %}{% endif %}
+{{ zodiac.user_list()|length }} / {{  max_login }}人参加中{% for user in zodiac.user_list() %}<img src="{{ user[5] }}" width="20px">{% endfor %}

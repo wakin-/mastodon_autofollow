@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+{% block body %}
+    <form action = "/atlas/logout" method = "POST" id="form">
+      {% if login_user %}
+      <p><img src="{{ login_user.avatar }}" width="40px">{{ login_user.user_id}}@{{ login_user.domain }} で参加中</p>
+      {% endif %}
+      <p><input type = "button" value = "削除" onclick="onSignOut();" /></p> 
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    </form>
+
+    <ul>
+    {% for zodiac in zodiac_list %}
+      <hr>
+      <li id="zodiac_id_{{ zodiac.id }}">{% include 'zodiac_list.html' ignore missing with context %}</li>
+    {% endfor %}
+    </ul>
+{% endblock %}
+
+{% block javascript %}
+  <script type="text/javascript">
+    function onSignOut() {
+      document.forms.form.submit();
+    }
+
+    function entry(zodiac_id) {
+      if (confirm("入りますか？（現在の参加者に対して自動で相互フォローが開始されます）")) {
+        $.ajax({
+          url: '/atlas/entry',
+          type: 'post',
+          contentType: 'application/json',
+          data: JSON.stringify({
+            zodiac_id: zodiac_id
+          })
+        }).then(
+          function (zodiac_line) {
+            if (zodiac_line != "") {
+              $('#zodiac_id_'+zodiac_id).html(zodiac_line);
+            }
+          },
+          function () {
+          }
+        );
+      }
+    }
+    function exit(zodiac_id) {
+      $.ajax({
+        url: '/atlas/exit',
+        type: 'post',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          zodiac_id: zodiac_id
+        })
+      }).then(
+        function (zodiac_line) {
+          if (zodiac_line != "") {
+            $('#zodiac_id_'+zodiac_id).html(zodiac_line);
+          }
+        },
+        function () {
+        }
+      );
+    }
+  </script>
+{% endblock %}

@@ -1,0 +1,92 @@
+import sqlite3
+from contextlib import closing
+import configparser
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+dbname = config['config']['dbname']
+
+class User:
+    def __init__(self, id, access_token, user_id, domain, session_id, avatar):
+        self.id = id
+        self.access_token = access_token
+        self.user_id = user_id
+        self.domain = domain
+        self.session_id = session_id
+        self.avatar = avatar
+
+    def save(self):
+        with closing(sqlite3.connect(dbname)) as conn:
+            c = conn.cursor()
+            c.execute('insert into user (access_token, user_id, domain, session_id, avatar) values (?,?,?,?,?)', (self.access_token, self.user_id, self.domain, self.session_id, self.avatar))
+            conn.commit()
+
+    def drop(self):
+        with closing(sqlite3.connect(dbname)) as conn:
+            c = conn.cursor()
+            c.execute('delete from user where id=?', (self.id,))
+            c.execute('delete from user_zodiac where user_id=?', (self.id,))
+            conn.commit()
+
+    def zodiac(self, zodiac_id):
+        with closing(sqlite3.connect(dbname)) as conn:
+            c = conn.cursor()
+            c.execute('''select id, title
+                         from zodiac left join user_zodiac on zodiac.id=user_zodiac.zodiac_id 
+                         where user_zodiac.user_id=? and user_zodiac.zodiac_id=?''', (self.id, zodiac_id))
+            fetch = c.fetchone()
+            return fetch
+
+    def zodiac_list(self):
+        with closing(sqlite3.connect(dbname)) as conn:
+            c = conn.cursor()
+            c.execute('''select id, title
+                         from zodiac left join user_zodiac on zodiac.id=user_zodiac.zodiac_id 
+                         where user_zodiac.user_id=?''', (self.id,))
+            fetch = c.fetchall()
+            return fetch
+
+    def add_zodiac(self, zodiac_id):
+        with closing(sqlite3.connect(dbname)) as conn:
+            c = conn.cursor()
+            c.execute('insert into user_zodiac (user_id, zodiac_id) values (?,?)', (self.id, zodiac_id))
+            conn.commit()
+
+    def del_zodiac(self, zodiac_id):
+        with closing(sqlite3.connect(dbname)) as conn:
+            c = conn.cursor()
+            c.execute('delete from user_zodiac where user_id=? and zodiac_id=?', (self.id, zodiac_id))
+            conn.commit()
+
+    @staticmethod
+    def first(id=None, access_token=None, user_id=None, domain=None, session_id=None, avatar=None):
+        with closing(sqlite3.connect(dbname)) as conn:
+            c = conn.cursor()
+            sql = 'select id, access_token, user_id, domain, session_id, avatar from user'
+            if id is not None:
+                c.execute(sql+' where id=?', (id,))
+            elif access_token is not None:
+                c.execute(sql+' where access_token=?', (access_token,))
+            elif user_id is not None and domain is not None:
+                c.execute(sql+' where user_id=? and domain=?', (user_id, domain))
+            elif session_id is not None:
+                c.execute(sql+' where session_id=?', (session_id,))
+            elif avatar is not None:
+                c.execute(sql+' where avatar=?', (avatar,))
+            else:
+                c.execute(sql)
+            fetch = c.fetchone()
+            user = User(fetch[0], fetch[1], fetch[2], fetch[3], fetch[4], fetch[5]) if fetch is not None else None
+            return user
+
+    @staticmethod
+    def list():
+        with closing(sqlite3.connect(dbname)) as conn:
+            c = conn.cursor()
+            c.execute('select id, access_token, user_id, domain, session_id, avatar from user')
+            fetch = c.fetchall()
+            user_list = []
+            for row in fetch:
+                user = User(row[0], row[1], row[2], row[3], row[4], row[5])
+                user_list.append(user)
+            return user_list
