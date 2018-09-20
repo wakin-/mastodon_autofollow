@@ -4,7 +4,7 @@
       {% if login_user %}
       <p><img src="{{ login_user.avatar }}" width="40px">{{ login_user.user_id}}@{{ login_user.domain }} で参加中</p>
       {% endif %}
-      <p><input type = "button" value = "sign out" onclick="onSignOut();" /> <input class="danger" type = "button" value = "delete" onclick="onDelete();" /></p> 
+      <p><input type = "button" value = "sign out" onclick="onSignOut();" /> <input class="btn-danger" type = "button" value = "delete" onclick="onDelete();" /></p> 
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     </form>
 
