@@ -1,7 +1,8 @@
 import sqlite3
 from contextlib import closing
+from config import config
 
-dbname = 'database.db'
+dbname = config('dbname')
 
 with closing(sqlite3.connect(dbname)) as conn:
     c = conn.cursor()
@@ -9,9 +10,11 @@ with closing(sqlite3.connect(dbname)) as conn:
     create_table = '''create table oauth_applications (id integer PRIMARY KEY AUTOINCREMENT, domain varchar(256),
                       uid varchar(256), secret varchar(256))'''
     c.execute(create_table)
-    create_table = 'create table uuid (uuid varchar(256), user_id varchar(256), domain varchar(256), disable boolean)'
+    create_table = '''create table uuid (uuid varchar(256), user_id varchar(256), 
+                      domain varchar(256), disable boolean)'''
     c.execute(create_table)
-    create_table = 'create table user (id integer PRIMARY KEY AUTOINCREMENT, access_token varchar(256), user_id varchar(256), domain varchar(256), avatar varchar(256))'
+    create_table = '''create table user (id integer PRIMARY KEY AUTOINCREMENT, access_token varchar(256), 
+                      user_id varchar(256), domain varchar(256), avatar varchar(256))'''
     c.execute(create_table)
 
     create_table = '''create table zodiac (id integer PRIMARY KEY AUTOINCREMENT, title varchar(256),

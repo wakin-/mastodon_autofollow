@@ -1,15 +1,13 @@
 from mastodon import Mastodon
 import sqlite3
 from contextlib import closing
-import configparser
+from config import config
 
 from Zodiac import Zodiac
 
-config = configparser.ConfigParser()
-config.read('config.ini')
-dbname = config['config']['dbname']
-server_domain = config['config']['server_domain']
-server_secret_key = config['config']['server_secret_key']
+dbname = config('dbname')
+server_domain = config('server_domain')
+server_secret_key = config('server_secret_key')
 
 def get_member(zodiac_id):
     with closing(sqlite3.connect(dbname)) as conn:

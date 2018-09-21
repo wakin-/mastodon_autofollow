@@ -1,10 +1,8 @@
 import sqlite3
 from contextlib import closing
-import configparser
+from config import config
 
-config = configparser.ConfigParser()
-config.read('config.ini')
-dbname = config['config']['dbname']
+dbname = config('dbname')
 
 class Zodiac:
     def __init__(self, id, title, access_token, api_base_url, uri):

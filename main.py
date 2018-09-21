@@ -5,24 +5,21 @@ import sqlite3
 from contextlib import closing
 import string
 import random
-import configparser
 from autofollow import autofollow
 from announce import announce
+from config import config
 
 from Zodiac import Zodiac
 from User import User
 
-config = configparser.ConfigParser()
-config.read('config.ini')
-dbname = config['config']['dbname']
-server_domain = config['config']['server_domain']
-server_secret_key = config['config']['server_secret_key']
-max_login = int(config['config']['max_login'])
+dbname = config('dbname')
+server_domain = config('server_domain')
+server_secret_key = config('server_secret_key')
+max_login = int(config('max_login'))
 
 client_name = 'atlas'
 scopes = ['read:accounts', 'follow']
 
-atlas_url = 'https:///'+server_domain+'atlas'
 redirect_url = 'https://'+server_domain+'/atlas'
 
 def create_app():
